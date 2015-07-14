@@ -34,10 +34,6 @@ SOFTWARE.
 #include <avr/pgmspace.h>
 #include <EEPROM.h>
 
-#include <PinChangeInt.h>
-//#include <PinChangeIntConfig.h>
-
-
 #define spiDataPin 10
 #define slaveSelectPin 11
 #define spiClockPin 12
@@ -58,9 +54,6 @@ SOFTWARE.
 #define dip_band1 A4
 #define dip_enable A5
 
-// genlock vsync input
-#define vsync_in 13
-#define hsync_in 8
 // key debounce delay in ms
 // NOTE: good values are in the range of 100-200ms
 // shorter values will make it more reactive, but may lead to double trigger
@@ -179,18 +172,11 @@ uint16_t rssi_setup_max=0;
 uint16_t rssi_seek_found=0;
 uint16_t rssi_setup_run=0;
 
-// genlock hander
-#define GENLOCK_DLY 0
-
-uint8_t genlock_dly = GENLOCK_DLY;
-
 TVout TV;
-
 
 // SETUP ----------------------------------------------------------------------------
 void setup() 
 {    
-
     // IO INIT
     // initialize digital pin 13 LED as an output.
     pinMode(led, OUTPUT); // status pin for TV mode errors
@@ -228,10 +214,6 @@ void setup()
     pinMode (slaveSelectPin, OUTPUT);
     pinMode (spiDataPin, OUTPUT);
 	pinMode (spiClockPin, OUTPUT);
-    // genlock input
-    pinMode(vsync_in, INPUT);
-    pinMode(hsync_in, INPUT);
-
     // tune to first channel
 
     
@@ -244,28 +226,11 @@ void setup()
     if (retVal > 0) {
         // on Error flicker LED
         while (true) { // stay in ERROR for ever
-            digitalWrite(led, !digitalRead(led));
+            digitalWrite(13, !digitalRead(13));
             delay(100);
         }
     }
-    // init overlay
-    
-    //initOverlay();    
-  
     TV.select_font(font4x6);
-    // setup Genlock
-    //PCintPort::attachInterrupt(vsync_in,genlock ,RISING); // attach a PinChange Interrupt to our pin on the rising edge
-    
-    //PCintPort::attachInterrupt(vsync_in,genlock ,FALLING); // attach a PinChange Interrupt to our pin on the rising edge
-
-    //PCintPort::attachInterrupt(vsync_in,genlock ,FALLING); // attach a PinChange Interrupt to our pin on the rising edge
-    
-    // hsync
-    PCintPort::attachInterrupt(vsync_in,display.vsync_handle ,FALLING); // attach a PinChange Interrupt to our pin on the rising edge
-    
-    
-    genlock_dly=GENLOCK_DLY;
-    
     // Setup Done - LED ON
     digitalWrite(13, HIGH);
     
@@ -293,63 +258,6 @@ void setup()
     force_menu_redraw=1;
 }
 
-// genlock ISR
-void genlock()
-{
-display.scanLine = 0;    
-    //uint8_t sreg = SREG;
-#if 0
-    if(genlock_dly)
-    {
-        genlock_dly--;
-    }
-    else
-    {  
-    genlock_dly=GENLOCK_DLY;
-    }
-    //SREG=sreg;
-#endif        
-}
-
-#if 0
-    ISR (PCINT0_vect) // handle pin change interrupt for D8 to D13 here
- {    
-    //digitalWrite(13,digitalRead(8) and digitalRead(9));
-    digitalWrite(led, !digitalRead(led));
-    display.scanLine = 0;    
- } 
- #endif
-// interup setup for input pin
-void pciSetup(byte pin)
-{
-    *digitalPinToPCMSK(pin) |= bit (digitalPinToPCMSKbit(pin));  // enable pin
-    PCIFR  |= bit (digitalPinToPCICRbit(pin)); // clear any outstanding interrupt
-    PCICR  |= bit (digitalPinToPCICRbit(pin)); // enable interrupt for the group
-}
- 
- // Initialize ATMega registers for video overlay capability.
-// Must be called after tv.begin().
-void initOverlay() {
-  // disable timer for free running video
-  TCCR1A = 0;
-  // Enable timer1.  ICES0 is set to 0 for falling edge detection on input capture pin.
-  // get hsync to state machine
-  TCCR1B = _BV(CS10);
-
-  //pciSetup(8);
-        
-  
-  // Enable input capture interrupt
-  TIMSK1 |= _BV(ICIE1);
-
-  // Enable external interrupt INT0 on pin 2 with falling edge.
-  //EIMSK = _BV(INT0); // enable interrupt
-  //EICRA = _BV(ISC11); // Falling edge int0
-}
-
-
-    
-    
 // LOOP ----------------------------------------------------------------------------
 void loop() 
 {      
@@ -488,14 +396,8 @@ void loop()
     // hardware save buttom support (if no display is used)
     if(digitalRead(buttonSave) == LOW)
     {
-        //state=STATE_SAVE;        
-        // DEBUG DEBUG
-        TV.video_clock(CLOCK_EXTERN);        
+        state=STATE_SAVE;        
     }        
-    else
-    {
-        TV.video_clock(CLOCK_INTERN);       
-    }
     /***************************************/
     /*   Draw screen if mode has changed   */
     /***************************************/
